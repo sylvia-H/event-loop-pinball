@@ -1,0 +1,25 @@
+{
+  "name": "event-loop-pinball",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Event Loop 彈珠台：一台看得見 JavaScript 執行順序的機器",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/check-budget.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "verify:node": "node scripts/verify-node.mjs"
+  },
+  "dependencies": {
+    "preact": "^11.2.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
