@@ -11,7 +11,7 @@ import type { Program } from '../core/program.ts';
 import { simulate } from '../core/sim.ts';
 import type { Verified } from '../core/types.ts';
 import { ballsForLine } from '../core/view.ts';
-import { takeaways, type CartridgeMeta } from './meta.ts';
+import type { CartridgeMeta } from './meta.ts';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const folders = readdirSync(ROOT, { withFileTypes: true })
@@ -99,7 +99,6 @@ for (const name of folders) {
       typeof meta.takeaway === 'string' && chars(meta.takeaway) > 0 && chars(meta.takeaway) <= 30,
       `takeaway 要有，而且 30 字以內：${meta.takeaway}`,
     );
-    assert.equal(takeaways[name], meta.takeaway, 'meta.ts 的 takeaways 沒有這個卡匣');
     // 讀者是先猜再看：清單上的 title、teaser 不能寫出輸出順序
     for (const [field, text] of [['title', meta.title], ['teaser', meta.teaser]] as const) {
       const leak = spoiler(text, run.output);
@@ -124,13 +123,11 @@ test('spoiler：輸出順序的幾種寫法都擋得到，只提到其中幾個�
   assert.equal(spoiler('await 42', ['42']), null);
 });
 
-test('takeaways 與資料夾一一對應', () => {
-  assert.deepEqual(Object.keys(takeaways).sort(), folders);
-});
-
-test('清單（index.ts）註冊了每一個資料夾', () => {
+test('清單（index.ts）註冊了每一個資料夾，各卡匣的 index.ts 把 meta 整個攤進卡匣', () => {
   const index = readFileSync(join(ROOT, 'index.ts'), 'utf8');
   for (const name of folders) {
+    // takeaway 這類文字欄位靠 `...meta` 帶進 Cartridge；少了它 tsc 也會擋
+    assert.match(readFileSync(join(ROOT, name, 'index.ts'), 'utf8'), /{ ...meta,/, `${name}/index.ts 沒有攤開 meta`);
     assert.ok(index.includes(`'./${name}/program.ts'`), `index.ts 沒有匯入 ${name} 的 meta`);
     assert.ok(index.includes(`import('./${name}/index.ts')`), `index.ts 沒有註冊 ${name}`);
   }

@@ -114,11 +114,13 @@ button {
   min-height: 0;
 }
 
+/* 捲軸的位置一直留著：解說展開、左欄開始需要捲動的那一刻，內容的寬度才不會跳一下 */
 .side {
   min-width: 0;
-  padding: var(--s3) var(--gutter) var(--s5);
+  padding: var(--s3) 6px var(--s5) var(--gutter);
   border-right: 1px solid var(--line);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
@@ -193,11 +195,6 @@ button {
   color: var(--accent);
 }
 
-.btn-close {
-  border-color: transparent;
-  font-size: 16px;
-}
-
 /* ── 玩法分頁 ──────────────────────────── */
 
 .tabs {
@@ -238,7 +235,8 @@ button {
 .code,
 .output,
 .guess,
-.guide {
+.guide,
+.explain {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
@@ -407,14 +405,68 @@ button {
   vertical-align: 1px;
 }
 
-.lead {
+/* ── 題目與解說 ────────────────────────── */
+
+.question-text {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.question-hint {
+  margin-top: var(--s1);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--faint);
+  text-wrap: pretty;
+}
+
+.link {
+  margin-left: var(--s2);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--text);
+}
+
+.explain {
+  border-color: var(--line-strong);
+}
+
+.explain-body {
+  padding: var(--s3);
   font-size: 13.5px;
+  line-height: 1.7;
   color: var(--muted);
   text-wrap: pretty;
 }
 
-.lead p + p {
+.explain-body p + p {
   margin-top: var(--s2);
+}
+
+.takeaway {
+  padding-left: var(--s3);
+  border-left: 2px solid var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.takeaway + p {
+  margin-top: var(--s3);
 }
 
 /* ── 程式碼面板 ────────────────────────── */
@@ -587,6 +639,14 @@ button.line:focus-visible {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
+}
+
+/* 自己發球：行首一顆與彈珠同色的點，看得出這一行是哪一種彈珠印的 */
+.out .dot {
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--s2);
 }
 
 .out code {
@@ -832,35 +892,54 @@ button.line:focus-visible {
   text-wrap: pretty;
 }
 
-/* ── 「這台機器怎麼讀」：疊在機器右上角，不蓋住中央 ── */
+/* ── 「這台機器怎麼讀」：左欄最上面的可收合區塊，不佔機器的位置 ── */
 
 .guide {
-  position: absolute;
-  top: var(--s3);
-  right: var(--s3);
-  display: flex;
-  flex-direction: column;
-  width: clamp(264px, 33%, 340px);
-  max-width: calc(100% - 2 * var(--s3));
-  max-height: calc(100% - 2 * var(--s3));
-  border-color: var(--line-strong);
-  background: rgb(13 15 21 / 0.94);
+  margin-bottom: var(--s3);
 }
 
-.guide .panel-head {
-  flex: none;
-  padding-right: 0;
+.guide.is-open {
+  border-color: var(--line-strong);
+}
+
+.guide-head {
+  font: inherit;
+}
+
+.guide-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 26px;
+  padding: 0 var(--s3);
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-toggle:hover .panel-title {
+  color: var(--text);
+}
+
+.guide-toggle:focus-visible {
+  outline-offset: -2px;
+}
+
+.guide-state {
+  font-size: 11px;
+  color: var(--faint);
 }
 
 .guide-body {
   padding: var(--s2) var(--s3) var(--s3);
-  overflow-y: auto;
+  border-top: 1px solid var(--line);
   font-size: 13px;
   line-height: 1.7;
   color: var(--muted);
   text-wrap: pretty;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
 }
 
 .guide-body p + p {
@@ -1079,6 +1158,7 @@ button.line:focus-visible {
   }
 
   .side {
+    padding-right: var(--gutter);
     border-right: 0;
     border-bottom: 1px solid var(--line);
     overflow: visible;
@@ -1108,7 +1188,8 @@ button.line:focus-visible {
   .tab,
   .cart,
   .chip,
-  .shot {
+  .shot,
+  .link {
     transition:
       background-color 120ms ease-out,
       border-color 120ms ease-out,

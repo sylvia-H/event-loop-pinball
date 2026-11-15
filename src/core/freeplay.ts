@@ -5,6 +5,7 @@
 //   · 同一個 atStep 有好幾發時，依陣列順序一發接一發。
 //   · atStep 比機器跑完時的步數還大：機器在那之前是閒著的，這一發直接接在最後一步之後，不補「等待」的步。
 // 編號（#1、#2…）依打進機器的先後（atStep，相同時依陣列順序），不是依陣列位置。
+// 彈珠的標籤與它印出的文字相同（`then #4`）；連環 microtask 排的第二顆是 `micro #4-2`。
 
 import { event, log, microtask, then_, timeout, type Op } from './program.ts';
 import { Machine } from './sim.ts';
@@ -30,13 +31,17 @@ interface ShotImpl extends ShotDef {
   op: (n: number) => Op;
 }
 
+// 每顆彈珠的標籤是「種類 #編號」，回呼印出的就是自己的標籤：輸出面板上每一行是誰印的一看就知道。
+// 模擬器自動產生的「X 的回呼印出 X」會重複，所以印出的那一步自己寫說明。
+const print = (label: string): Op => log(null, label, `${label} 的回呼印出自己的名字`);
+
 const IMPL: readonly ShotImpl[] = [
   {
     kind: 'click',
     label: '點擊事件',
     hint: 'macrotask：回呼直接排上外圈',
     ballKind: 'macro',
-    op: (n) => event(null, `click #${n}`, [log(null, `click #${n}`)], `發射 click #${n}：事件的回呼直接排上外圈`),
+    op: (n) => event(null, `click #${n}`, [print(`click #${n}`)], `發射 click #${n}：事件的回呼直接排上外圈`),
   },
   {
     kind: 'timeout0',
@@ -44,7 +49,7 @@ const IMPL: readonly ShotImpl[] = [
     hint: '0 毫秒也要先掛上計時器架，再掉上外圈',
     ballKind: 'macro',
     op: (n) =>
-      timeout(null, 0, [log(null, `timeout #${n}`)], {
+      timeout(null, 0, [print(`timeout #${n}`)], {
         label: `timeout #${n}`,
         say: `發射 timeout #${n}：0 毫秒也先掛上計時器架`,
       }),
@@ -55,7 +60,7 @@ const IMPL: readonly ShotImpl[] = [
     hint: '在架上倒數 1 秒，到期才掉上外圈',
     ballKind: 'macro',
     op: (n) =>
-      timeout(null, 1000, [log(null, `timeout #${n}`)], {
+      timeout(null, 1000, [print(`timeout #${n}`)], {
         label: `timeout #${n}`,
         say: `發射 timeout #${n}：掛上計時器架，倒數 1 秒`,
       }),
@@ -66,21 +71,22 @@ const IMPL: readonly ShotImpl[] = [
     hint: 'microtask：進內圈，比外圈先處理',
     ballKind: 'micro',
     op: (n) =>
-      then_(null, [log(null, `then #${n}`)], { label: `then #${n}`, say: `發射 then #${n}：microtask 排進內圈` }),
+      then_(null, [print(`then #${n}`)], { label: `then #${n}`, say: `發射 then #${n}：microtask 排進內圈` }),
   },
   {
     kind: 'microChain',
     label: '連環 microtask',
     hint: '執行時再排一顆，同一輪一起清掉',
     ballKind: 'micro',
+    // 它排的第二顆叫「micro #n-2」：標籤用英數結尾，接「的回呼」才通順
     op: (n) =>
       microtask(
         null,
         [
-          log(null, `micro #${n}`),
-          microtask(null, [log(null, `micro #${n} 續`)], {
-            label: `micro #${n} 續`,
-            say: `micro #${n} 又排了一顆 microtask 進內圈`,
+          print(`micro #${n}`),
+          microtask(null, [print(`micro #${n}-2`)], {
+            label: `micro #${n}-2`,
+            say: `micro #${n} 的回呼又排了一顆 micro #${n}-2 進內圈`,
           }),
         ],
         { label: `micro #${n}`, say: `發射 micro #${n}：它執行時會再排一顆` },
@@ -96,8 +102,8 @@ const IMPL: readonly ShotImpl[] = [
         null,
         0,
         [
-          log(null, `timeout #${n}`),
-          then_(null, [log(null, `then #${n}`)], {
+          print(`timeout #${n}`),
+          then_(null, [print(`then #${n}`)], {
             label: `then #${n}`,
             say: `timeout #${n} 的回呼排了 then #${n} 進內圈`,
           }),

@@ -3,19 +3,7 @@
 // 文字分兩組。讀者選了卡匣之後可以先猜輸出順序，所以：
 //   看球之前（卡匣清單）：title、teaser。只講主題，不能洩漏答案。
 //   看球之後（球跑完才顯示）：lead、takeaway。把結論與原因講清楚。
-
-import { meta as sync } from './01-sync/program.ts';
-import { meta as timeoutZero } from './02-timeout-zero/program.ts';
-import { meta as promiseThen } from './03-promise-then/program.ts';
-import { meta as classicMix } from './04-classic-mix/program.ts';
-import { meta as microtaskChain } from './05-microtask-chain/program.ts';
-import { meta as asyncAwait } from './06-async-await/program.ts';
-import { meta as awaitPlainValue } from './07-await-plain-value/program.ts';
-import { meta as blockedTimer } from './08-blocked-timer/program.ts';
-import { meta as promiseExecutor } from './09-promise-executor/program.ts';
-import { meta as nextTick } from './10-next-tick/program.ts';
-import { meta as setImmediateVsTimeout } from './11-set-immediate/program.ts';
-import { meta as finale } from './12-finale/program.ts';
+// 各卡匣的 index.ts 把 meta 整個攤進 Cartridge（core/types.ts），介面直接從卡匣物件讀。
 
 export interface CartridgeMeta {
   /** 與資料夾同名 */
@@ -31,25 +19,3 @@ export interface CartridgeMeta {
   /** 用到 process.nextTick 或 setImmediate（只在 Node 成立）就是 true */
   nodeOnly: boolean;
 }
-
-/**
- * 每個卡匣要帶走的那一句，用 slug 查。
- * `Cartridge` 型別（core/types.ts）還沒有 takeaway 欄位，介面先從這裡拿：`takeaways[cartridge.slug]`。
- * 新增卡匣時這裡也要加（測試會擋）。
- */
-export const takeaways: Readonly<Record<string, string>> = Object.fromEntries(
-  [
-    sync,
-    timeoutZero,
-    promiseThen,
-    classicMix,
-    microtaskChain,
-    asyncAwait,
-    awaitPlainValue,
-    blockedTimer,
-    promiseExecutor,
-    nextTick,
-    setImmediateVsTimeout,
-    finale,
-  ].map((m) => [m.slug, m.takeaway]),
-);

@@ -60,16 +60,39 @@ test('單發的輸出', () => {
   assert.deepEqual(runFreePlay(shots(['click', 0])).output, ['click #1']);
   assert.deepEqual(runFreePlay(shots(['timeout0', 0])).output, ['timeout #1']);
   assert.deepEqual(runFreePlay(shots(['then', 0])).output, ['then #1']);
-  assert.deepEqual(runFreePlay(shots(['microChain', 0])).output, ['micro #1', 'micro #1 續']);
+  assert.deepEqual(runFreePlay(shots(['microChain', 0])).output, ['micro #1', 'micro #1-2']);
   assert.deepEqual(runFreePlay(shots(['timeoutThen', 0])).output, ['timeout #1', 'then #1']);
   const slow = runFreePlay(shots(['timeout1s', 0]));
   assert.deepEqual(slow.output, ['timeout #1']);
   assert.deepEqual(waits(slow), [1000]);
 });
 
+test('說明通順：印出的那一步不重複標籤，標籤一律英數結尾', () => {
+  const run = runFreePlay(SHOTS.map((s) => ({ kind: s.kind, atStep: 0 })));
+  const labels = Object.values(run.balls).map((b) => b.label);
+  // 標籤一律英數結尾（接中文時自動空一格），而且每顆都不同
+  for (const label of labels) assert.match(label, /^[a-z]+ #\d+(-2)?$/);
+  assert.equal(new Set(labels).size, labels.length);
+  for (const step of run.steps) {
+    assert.doesNotMatch(step.caption, /印出 /, `印出的那一步要用自己寫的說明：${step.caption}`);
+    assert.doesNotMatch(step.caption, /[A-Za-z0-9]的回呼/, `標籤與「的回呼」之間少了空格：${step.caption}`);
+    for (const label of labels) {
+      const n = step.caption.split(label).length - 1 - (step.caption.split(`${label}-2`).length - 1);
+      assert.ok(n <= 1, `同一個標籤講了兩次：${step.caption}`);
+    }
+  }
+  // 每一行輸出就是印它的那顆彈珠的標籤
+  run.steps.forEach((step, k) => {
+    const ev = step.events.find((e) => e.type === 'log');
+    if (!ev || ev.type !== 'log') return;
+    const top = run.states[k]!.stack.at(-1)!;
+    assert.equal(ev.text, run.balls[top]!.label);
+  });
+});
+
 test('多發混合：內圈先清空（含途中排進來的），才輪到外圈', () => {
   const run = runFreePlay(shots(['click', 0], ['timeout0', 0], ['then', 0], ['microChain', 0]));
-  assert.deepEqual(run.output, ['then #3', 'micro #4', 'micro #4 續', 'click #1', 'timeout #2']);
+  assert.deepEqual(run.output, ['then #3', 'micro #4', 'micro #4-2', 'click #1', 'timeout #2']);
   checkCaptions(run);
   assert.ok(run.steps.some((s) => s.rule === '內圈清空才輪到外圈'));
   assert.ok(run.steps.some((s) => s.rule === '清的途中排進來的也一併清掉'));

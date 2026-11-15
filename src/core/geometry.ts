@@ -73,8 +73,14 @@ export const timerSlot = (i: number): Pt => ({ x: TIMERS.x - i * TIMERS.gap, y: 
 /** 計時器到期時，彈珠掉上輸送帶的落點角度（度） */
 export const TIMER_DROP_DEG = 38;
 
-/** 機械臂閒置時夾爪停的位置 */
-export const ARM_REST: Pt = { x: HUB.x - 0.55, y: HUB.y + 0.55 };
+/**
+ * 機械臂閒置時夾爪停的位置：超車道圓的內側、軸心的下方。
+ * 各條隊伍都從 180° 往順時針（經過上方）排，下半圈不會有彈珠；夾爪收小之後（ARM_IDLE_GRIP_R）
+ * 整個落在軸心與超車道之間，不壓到任何軌道。
+ */
+export const ARM_REST: Pt = onEllipse(0.55, 0.55, 260);
+/** 閒置時夾爪收小後的半徑（張開夾球時是 BALL_R + 0.15） */
+export const ARM_IDLE_GRIP_R = 0.2;
 
 /** 各管線的中文名與一句說明，場景的標籤與 UI 的圖例共用 */
 export const LANE_INFO: Record<Lane, { name: string; what: string }> = {

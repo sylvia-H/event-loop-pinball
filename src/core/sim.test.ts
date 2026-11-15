@@ -339,14 +339,14 @@ test('彈珠的標籤：同類有好幾顆才編號', () => {
   const one = simulate(program(then_(1, []), timeout(2, 0, [])));
   assert.deepEqual(
     Object.values(one.balls).map((b) => b.label),
-    ['main', 'then', 'timeout 0ms'],
+    ['主程式', 'then', 'timeout 0ms'],
   );
   const many = simulate(program(then_(1, [then_(2, [])]), then_(3, [], { label: '自訂' })));
   assert.deepEqual(
     Object.values(many.balls)
       .map((b) => b.label)
       .sort(),
-    ['main', 'then #1', 'then #2', '自訂'].sort(),
+    ['主程式', 'then #1', 'then #2', '自訂'].sort(),
   );
 });
 

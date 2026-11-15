@@ -140,7 +140,7 @@ export class Machine {
   /** 跑一段程式：主程式是第一個 macrotask，跑完接著 event loop，直到機器閒下來 */
   *runProgram(program: Program): Gen {
     this.labels = autoLabels(program.body);
-    const main = this.newBall('main', 'sync', 'main', null);
+    const main = this.newBall('main', 'sync', '主程式', null);
     this.stack.push(main);
     yield* this.emit([{ type: 'spawn', ball: main, to: 'stack' }], null, '主程式開始：整段程式是第一顆彈珠，進主管');
     yield* this.runBody(program.body, { ball: main });

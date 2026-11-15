@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { runFreePlay } from './freeplay.ts';
-import { ARM_REST, macroSlot, microSlot, STACK, stackSlot, timerSlot } from './geometry.ts';
+import {
+  ARM_IDLE_GRIP_R,
+  ARM_REST,
+  BALL_R,
+  HUB,
+  macroSlot,
+  microSlot,
+  STACK,
+  stackSlot,
+  TICK,
+  tickSlot,
+  timerSlot,
+} from './geometry.ts';
 import { async_, await_, block, call, immediate, log, nextTick, program, then_, timeout } from './program.ts';
 import { simulate } from './sim.ts';
 import { LANES, type Lane, type MachineState, type Run } from './types.ts';
@@ -33,6 +45,19 @@ const RUNS: [string, Run][] = [
 ];
 
 const REST = { x: ARM_REST.x, y: ARM_REST.y, grip: 0, lit: 0 };
+
+test('閒置的夾爪收在超車道圓的內側：不壓到軌道、軸心，也不壓到超車道上排隊的彈珠', () => {
+  const d = Math.hypot(ARM_REST.x - HUB.x, ARM_REST.y - HUB.y);
+  // 外緣離超車道的線、內緣離軸心的外環（半徑 0.2）都留一點空隙
+  assert.ok(d + ARM_IDLE_GRIP_R < TICK.r - 0.05, '夾爪壓到超車道的線');
+  assert.ok(d - ARM_IDLE_GRIP_R > 0.3, '夾爪壓到軸心');
+  // 超車道排到第 6 顆才會繞到夾爪這裡（卡匣最多同時 2 顆，自己發球沒有 nextTick）
+  for (let i = 0; i < 5; i++) {
+    const p = tickSlot(i);
+    const gap = Math.hypot(p.x - ARM_REST.x, p.y - ARM_REST.y) - BALL_R - ARM_IDLE_GRIP_R;
+    assert.ok(gap > 0.1, `夾爪太靠近超車道第 ${i} 顆`);
+  }
+});
 const ids = (s: MachineState, lane: Lane) => (lane === 'timers' ? s.timers.map((t) => t.ball) : s[lane]);
 const xy = (p: { x: number; y: number }) => ({ x: p.x, y: p.y });
 

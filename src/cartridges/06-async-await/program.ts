@@ -27,7 +27,4 @@ export default {
   captions: {
     9: '主程式跑完，async1 後半才被夾回主管接著跑',
   },
-  rules: {
-    9: '內圈先排的先走',
-  },
 };

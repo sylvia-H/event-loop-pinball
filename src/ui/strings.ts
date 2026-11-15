@@ -17,7 +17,8 @@ export const S = {
   guide: {
     button: '這台機器怎麼讀',
     title: '這台機器怎麼讀',
-    close: '關閉說明',
+    show: '展開',
+    hide: '收合',
     intro: [
       '每顆彈珠是一次函式呼叫或一個回呼。機器平常是暗的，彈珠經過哪條管線，那條才亮。',
       '左邊的主管空了，中央的機械臂才會動；它每次先把內圈清光，才去外圈夾一顆。',
@@ -31,6 +32,15 @@ export const S = {
     label: '玩法',
     cart: '卡匣',
     free: '自己發球',
+  },
+
+  lesson: {
+    question: '題目',
+    hint: '先猜猜看，或直接拖動時間軸；球跑完會出現解說。',
+    reveal: '直接看解說',
+    shown: '解說在輸出的下面。',
+    jump: '捲到解說',
+    title: '解說',
   },
 
   list: {
@@ -50,6 +60,7 @@ export const S = {
 
   output: {
     title: '輸出',
+    by: (kind: BallKind) => `${ballKinds[kind]} 的彈珠印的`,
     empty: '還沒有印出任何東西',
     right: '猜對',
     wrong: '猜錯',

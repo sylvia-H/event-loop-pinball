@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks';
+import type { BallKind } from '../core/types.ts';
 import { S } from './strings.ts';
 
 interface Props {
@@ -6,6 +7,8 @@ interface Props {
   lines: readonly string[];
   /** 這個時間點已經印出幾行 */
   count: number;
+  /** 每一行是哪一種彈珠印的（自己發球用：行首畫一顆同色的點）；不畫就是 null */
+  kinds: readonly BallKind[] | null;
   /** 讀者按「放球驗證」時送出的順序；沒猜就是 null */
   predicted: readonly string[] | null;
   /** 把時間軸帶到印出第 i 行（0 起算）的那一步 */
@@ -13,7 +16,7 @@ interface Props {
   onGuessAgain(): void;
 }
 
-export function OutputPanel({ lines, count, predicted, onJump, onGuessAgain }: Props) {
+export function OutputPanel({ lines, count, kinds, predicted, onJump, onGuessAgain }: Props) {
   const listRef = useRef<HTMLOListElement>(null);
 
   // 自己發球時輸出會很長：新印出的那一行保持看得到
@@ -37,11 +40,15 @@ export function OutputPanel({ lines, count, predicted, onJump, onGuessAgain }: P
         <ol class="output-lines" ref={listRef}>
           {lines.slice(0, count).map((text, i) => {
             const ok = predicted ? predicted[i] === text : null;
+            const kind = kinds?.[i];
             return (
               <li key={i} class={'out' + (ok === true ? ' is-right' : ok === false ? ' is-wrong' : '')}>
                 <span class="ln" aria-hidden="true">
                   {i + 1}
                 </span>
+                {kind && (
+                  <span class={`dot dot-${kind}`} role="img" aria-label={S.output.by(kind)} title={S.output.by(kind)} />
+                )}
                 <code>{text}</code>
                 {ok !== null && (
                   <span class="out-mark">

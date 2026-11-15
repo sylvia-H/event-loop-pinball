@@ -20,6 +20,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import {
+  ARM_IDLE_GRIP_R,
   ARM_REST,
   BALL_R,
   HUB,
@@ -126,6 +127,10 @@ const IMMEDIATE_HALF = 0.15;
 /** 計時器架的橫桿比掛著的彈珠高多少 */
 const RAIL_UP = 0.56;
 const MIN_HOOKS = 4;
+/** 夾爪離閒置的位置這麼遠以內就開始收小、手臂開始摺起（機器單位） */
+const ARM_FOLD_RANGE = 0.9;
+/** 閒置時關節往旁邊多凸出去多少：上臂與前臂摺成一個 V，看得出是收起來的手臂 */
+const ARM_FOLD = 0.3;
 /** 標籤離彈珠邊緣幾個像素 */
 const LABEL_PAD = 5;
 /** 並排的兩個標籤之間至少留幾個像素 */
@@ -659,6 +664,8 @@ export class Stage {
     }
 
     // ── 計時器架：橫桿、一排掛勾、到期後掉上外圈的落點 ──
+    /** 落點的箭頭佔的範圍（機器座標）：彈珠的標籤要讓開 */
+    let dropMark: Rect;
     {
       const c = tint(C_LANE.timers, lit.timers);
       const g = lit.timers;
@@ -681,22 +688,28 @@ export class Stage {
       seg(drop.x, top, drop.x, tip, c, 0.8, 0.3, SEG_DASH, 0.014);
       seg(drop.x - 0.13, tip + 0.13, drop.x, tip, c, 0.8, 0.3, SEG_PLAIN, 0.016, g);
       seg(drop.x + 0.13, tip + 0.13, drop.x, tip, c, 0.8, 0.3, SEG_PLAIN, 0.016, g);
+      dropMark = { x0: drop.x - 0.16, y0: tip - 0.03, x1: drop.x + 0.16, y1: top };
     }
 
     // ── 機械臂：軸心、上臂、關節、前臂、夾爪 ──
+    /** 閒置的夾爪與關節（機器座標）：彈珠的標籤要讓開 */
+    const parked: Disc[] = [];
     {
       const a = view.arm;
       const armLit = clamp01(a.lit);
       const c = tint(C_ARM, armLit);
       const grip = clamp01(a.grip);
-      const ringR = BALL_R + 0.15 - 0.06 * grip;
+      // 閒置：鬆開而且回到 ARM_REST 附近。夾爪收小、手臂摺起，整支收在超車道圓的內側
+      const idle = (1 - grip) * clamp01(1 - Math.hypot(a.x - ARM_REST.x, a.y - ARM_REST.y) / ARM_FOLD_RANGE);
+      const openR = BALL_R + 0.15 - 0.06 * grip;
+      const ringR = openR + (ARM_IDLE_GRIP_R - openR) * idle;
       const dx = a.x - HUB.x;
       const dy = a.y - HUB.y;
       const d = Math.hypot(dx, dy);
       sprite(HUB.x, HUB.y, 0.5, KIND_HUB, c, 1, armLit);
       if (d > 0.05) {
         // 關節往臂的左側凸出去，臂伸得越長凸得越多（不是剛體的連桿，只求看起來有關節）
-        const bend = Math.min(0.75, 0.16 * d);
+        const bend = Math.min(0.75, 0.16 * d) + ARM_FOLD * idle;
         const ex = HUB.x + dx * 0.5 - (dy / d) * bend;
         const ey = HUB.y + dy * 0.5 + (dx / d) * bend;
         const ux = ex - HUB.x;
@@ -711,11 +724,15 @@ export class Stage {
           HUB.x + (ux / ul) * hubR, HUB.y + (uy / ul) * hubR, ex - (ux / ul) * 0.09, ey - (uy / ul) * 0.09,
           c, 1, 0.42, SEG_PLAIN, 0.045, armLit,
         );
-        seg(
-          ex + (fx / fl) * 0.09, ey + (fy / fl) * 0.09, a.x - (fx / fl) * wrist, a.y - (fy / fl) * wrist,
-          c, 1, 0.36, SEG_PLAIN, 0.028, armLit,
-        );
+        // 摺起來時前臂短到只剩手腕，就不畫
+        if (fl - wrist > 0.09) {
+          seg(
+            ex + (fx / fl) * 0.09, ey + (fy / fl) * 0.09, a.x - (fx / fl) * wrist, a.y - (fy / fl) * wrist,
+            c, 1, 0.36, SEG_PLAIN, 0.028, armLit,
+          );
+        }
         sprite(ex, ey, 0.2, KIND_JOINT, c, 1, 0.09);
+        if (idle > 0.5) parked.push({ x: a.x, y: a.y, r: ringR + 0.1 }, { x: ex, y: ey, r: 0.12 });
         sprite(a.x, a.y, ringR + 0.32, KIND_GRIP, c, 1, ringR, grip, armLit, Math.atan2(fy, fx));
       } else {
         sprite(a.x, a.y, ringR + 0.32, KIND_GRIP, c, 1, ringR, grip, armLit, Math.PI / 2);
@@ -767,6 +784,10 @@ export class Stage {
     {
       const hub = this.toScreen(HUB.x, HUB.y);
       discs.push({ x: hub.x, y: hub.y, r: 0.3 * pxPerUnit });
+      for (const p of parked) {
+        const s = this.toScreen(p.x, p.y);
+        discs.push({ x: s.x, y: s.y, r: p.r * pxPerUnit });
+      }
     }
 
     // ── 管線的名稱 ──
@@ -806,6 +827,12 @@ export class Stage {
       );
     }
     lane('timers', timerSlot(this.hookCount - 1).x - 0.62, TIMERS.y + RAIL_UP, -1, 0);
+    {
+      // 落點的箭頭：計時器到期的彈珠掉下來時，標籤不要壓在箭頭上
+      const a = this.toScreen(dropMark.x0, dropMark.y1);
+      const b = this.toScreen(dropMark.x1, dropMark.y0);
+      rects.push({ x0: a.x, y0: a.y, x1: b.x, y1: b.y });
+    }
 
     // ── 彈珠的標籤：主管裡的放右側、軌道上的放外側；撞到別的彈珠或標籤就換一邊 ──
     for (const { i, sx, sy, rp, own } of shown) {

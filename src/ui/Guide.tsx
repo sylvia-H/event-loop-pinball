@@ -5,17 +5,19 @@ import { S } from './strings.ts';
 const BALL_KINDS: readonly BallKind[] = ['sync', 'micro', 'macro', 'tick', 'immediate'];
 
 export const GUIDE_ID = 'guide';
+const BODY_ID = 'guide-body';
 
-export function Guide({ onClose }: { onClose(): void }) {
+/** 左欄最上面的可收合區塊：收起時只剩一列標題，機器永遠不被擋 */
+export function Guide({ open, onToggle }: { open: boolean; onToggle(): void }) {
   return (
-    <aside id={GUIDE_ID} class="guide" aria-label={S.guide.title}>
-      <div class="panel-head">
-        <h2 class="panel-title">{S.guide.title}</h2>
-        <button type="button" class="btn btn-close" onClick={onClose} aria-label={S.guide.close}>
-          ×
+    <section id={GUIDE_ID} class={'guide' + (open ? ' is-open' : '')} aria-label={S.guide.title}>
+      <h2 class="guide-head">
+        <button type="button" class="guide-toggle" aria-expanded={open} aria-controls={BODY_ID} onClick={onToggle}>
+          <span class="panel-title">{S.guide.title}</span>
+          <span class="guide-state">{open ? S.guide.hide : S.guide.show}</span>
         </button>
-      </div>
-      <div class="guide-body">
+      </h2>
+      <div id={BODY_ID} class="guide-body" hidden={!open}>
         {S.guide.intro.map((text, i) => (
           <p key={i}>{text}</p>
         ))}
@@ -39,6 +41,6 @@ export function Guide({ onClose }: { onClose(): void }) {
           ))}
         </ul>
       </div>
-    </aside>
+    </section>
   );
 }

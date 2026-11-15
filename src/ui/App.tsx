@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { cartridges } from '../cartridges/index.ts';
 import { runFreePlay, type Shot } from '../core/freeplay.ts';
-import type { Cartridge, Run } from '../core/types.ts';
+import type { BallKind, Cartridge, Run } from '../core/types.ts';
 import { ballsForLine, linesForBall } from '../core/view.ts';
 import { Stage } from '../scene/stage.ts';
 import { CartridgeList } from './CartridgeList.tsx';
@@ -9,6 +9,7 @@ import { CodePanel } from './CodePanel.tsx';
 import { Guess, guessable } from './Guess.tsx';
 import { Guide, GUIDE_ID } from './Guide.tsx';
 import { Launcher } from './Launcher.tsx';
+import { Explain, Question } from './Lesson.tsx';
 import { OutputPanel } from './OutputPanel.tsx';
 import { Timeline } from './Timeline.tsx';
 import { createClock, prefersReducedMotion } from './clock.ts';
@@ -48,6 +49,18 @@ function parseRoute(hash: string): Route {
 
 const stepIndex = (t: number) => (t <= 0 ? -1 : Math.ceil(t) - 1);
 
+const scrollBehavior = (): ScrollBehavior => (prefersReducedMotion() ? 'auto' : 'smooth');
+
+/** 每一行輸出是哪一種彈珠印的：印出那一步開始時主管最上面那一顆 */
+function printers(run: Run): BallKind[] {
+  const out: BallKind[] = [];
+  run.steps.forEach((step, k) => {
+    const top = run.states[k]?.stack.at(-1);
+    for (const ev of step.events) if (ev.type === 'log') out.push(run.balls[top ?? '']?.kind ?? 'sync');
+  });
+  return out;
+}
+
 /** 第一次造訪回傳 true，並記下來；之後回傳 false。 */
 function firstVisit(): boolean {
   try {
@@ -80,11 +93,16 @@ export function App() {
   const [predicted, setPredicted] = useState<string[] | null>(null);
   const [guessRound, setGuessRound] = useState(0);
   const [guideOpen, setGuideOpen] = useState(firstVisit);
+  /** 這次造訪展開過解說的卡匣（slug）：換卡匣再回來時維持展開 */
+  const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLInputElement>(null);
-  const guideBtnRef = useRef<HTMLButtonElement>(null);
+  const explainRef = useRef<HTMLElement>(null);
+  /** 下一次畫完要把解說／說明捲進左欄的可視範圍（只在剛展開的那一刻，回到已展開的卡匣不捲） */
+  const scrollToExplain = useRef(false);
+  const scrollToGuide = useRef(false);
   const stageRef = useRef<Stage | null>(null);
   /** 機器已經收過 setRun：在那之前不對它呼叫 setT */
   const stageLoaded = useRef(false);
@@ -301,15 +319,12 @@ export function App() {
     if (slider) slider.value = String(store.get());
   }, [run]);
 
-  // 鍵盤：← → 走一步、Esc 關說明
+  // 鍵盤：← → 走一步、Esc 收合說明
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
       if (e.key === 'Escape') {
-        if (!guideOpen) return;
-        const inside = document.getElementById(GUIDE_ID)?.contains(document.activeElement);
-        setGuideOpen(false);
-        if (inside) guideBtnRef.current?.focus();
+        if (guideOpen) setGuideOpen(false);
         return;
       }
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -345,6 +360,42 @@ export function App() {
     return lines;
   }, [shownCart]);
 
+  const outKinds = useMemo(() => (mode === 'free' && run ? printers(run) : null), [mode, run]);
+
+  // ── 解說：球跑完（t 到底）自動展開，也可以提前按開 ──
+
+  const isRevealed = shownCart !== null && revealed.has(shownCart.slug);
+  const showExplain = () =>
+    explainRef.current?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() });
+  const reveal = () => {
+    if (!shownCart || isRevealed) return;
+    scrollToExplain.current = true;
+    setRevealed(new Set(revealed).add(shownCart.slug));
+  };
+
+  // run 要是這個卡匣自己的：從自己發球切回來的那一瞬間，done 還是上一份 Run 的
+  const finished = shownCart !== null && run === shownCart.run && steps > 0 && done >= steps;
+  useEffect(() => {
+    if (finished) reveal();
+  }, [finished, shownCart]);
+
+  useEffect(() => {
+    if (!isRevealed || !scrollToExplain.current) return;
+    scrollToExplain.current = false;
+    showExplain();
+  }, [isRevealed, shownCart]);
+
+  const toggleGuide = (scroll: boolean) => {
+    scrollToGuide.current = scroll && !guideOpen;
+    setGuideOpen(!guideOpen);
+  };
+
+  useEffect(() => {
+    if (!guideOpen || !scrollToGuide.current) return;
+    scrollToGuide.current = false;
+    document.getElementById(GUIDE_ID)?.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+  }, [guideOpen]);
+
   /** 印出第 i 行（0 起算）的那一步做完的時間 */
   const jumpToLine = (i: number) => {
     const at = runRef.current?.states.findIndex((s) => s.output.length > i) ?? -1;
@@ -379,12 +430,11 @@ export function App() {
       <header class="top">
         <h1 class="brand">{S.brand}</h1>
         <button
-          ref={guideBtnRef}
           type="button"
           class="btn btn-guide"
           aria-expanded={guideOpen}
           aria-controls={GUIDE_ID}
-          onClick={() => setGuideOpen(!guideOpen)}
+          onClick={() => toggleGuide(true)}
         >
           {S.guide.button}
         </button>
@@ -392,6 +442,8 @@ export function App() {
 
       <main class="page">
         <div class="side">
+          <Guide open={guideOpen} onToggle={() => toggleGuide(false)} />
+
           <div class="tabs" role="tablist" aria-label={S.mode.label} onKeyDown={onTabKey}>
             {tab('cart', S.mode.cart)}
             {tab('free', S.mode.free)}
@@ -403,11 +455,7 @@ export function App() {
                 <CartridgeList entries={cartridges} selected={route.slug} onSelect={selectCart} />
                 {shownCart ? (
                   <>
-                    <div class="lead">
-                      {shownCart.lead.map((text, i) => (
-                        <p key={i}>{text}</p>
-                      ))}
-                    </div>
+                    <Question cart={shownCart} revealed={isRevealed} onReveal={isRevealed ? showExplain : reveal} />
                     <CodePanel
                       code={shownCart.code}
                       note={S.code.verified(shownCart.verified.node)}
@@ -454,6 +502,7 @@ export function App() {
             <OutputPanel
               lines={run?.output ?? []}
               count={outCount}
+              kinds={outKinds}
               predicted={mode === 'cart' ? predicted : null}
               onJump={jumpToLine}
               onGuessAgain={() => {
@@ -462,6 +511,8 @@ export function App() {
                 goTo(0, 0);
               }}
             />
+
+            {isRevealed && shownCart && <Explain cart={shownCart} boxRef={explainRef} />}
           </div>
         </div>
 
@@ -472,7 +523,6 @@ export function App() {
               <div class="labels" ref={labelsRef} aria-hidden="true" />
             </div>
             {glFailed && <p class="stage-fallback">{S.stage.fallback}</p>}
-            {guideOpen && <Guide onClose={() => setGuideOpen(false)} />}
           </section>
 
           <Timeline

@@ -25,7 +25,7 @@ export type BallKind =
 export interface Ball {
   id: string;
   kind: BallKind;
-  /** 顯示在彈珠旁的短標籤，例如 `main`、`then #1`、`timeout 0ms` */
+  /** 顯示在彈珠旁的短標籤，例如 `主程式`、`then #1`、`timeout 0ms` */
   label: string;
   /** 這顆彈珠對應的程式碼行（1 起算）：它被排進去的那一行。沒有就是 null */
   line: number | null;
@@ -120,10 +120,12 @@ export interface Verified {
 export interface Cartridge {
   slug: string;
   title: string;
-  /** 卡匣清單上的一句話，30 字以內 */
+  /** 卡匣清單上的一句話，選了之後當成題目顯示；不洩漏答案。30 字以內 */
   teaser: string;
-  /** 白話說明，一段一個字串，每段 80 字以內 */
+  /** 解說，球跑完（或讀者按「直接看解說」）才顯示：一段一個字串，每段 80 字以內 */
   lead: string[];
+  /** 這一題要帶走的規則，一句話，與解說一起顯示。30 字以內 */
+  takeaway: string;
   /** 顯示給讀者的 JavaScript（就是 code.js 的內容） */
   code: string;
   /** 只在 Node 成立的行為（nextTick、setImmediate）要標出來 */
