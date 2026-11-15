@@ -1,0 +1,5 @@
+{
+  "node": "v26.12.1",
+  "sha256": "6af19b48e25d4d35faf5d207aaed321a48b196f2f3175571c8a23f4684fbe63a",
+  "stdout": "1\n3\n4\n2\n"
+}
