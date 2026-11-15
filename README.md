@@ -2,6 +2,10 @@
 
 一台看得見 JavaScript 執行順序的彈珠台，給準備面試的前端工程師看。每個函式呼叫或回呼是一顆彈珠；機器平常是暗的，彈珠經過哪條管線、那條才亮。
 
+線上版：<https://sylvia-h.github.io/event-loop-pinball/>
+
+推送到 `main` 會由 `.github/workflows/deploy.yml` 自動跑測試、build 並發布到 GitHub Pages；測試或首屏體積檢查不過就不會發布。
+
 整個網站只有一台機器：直立的主管（call stack）、內圈快軌（microtask）、外圈輸送帶（macrotask）、計時器架、Node 專屬的超車道（`process.nextTick`）與支線（`setImmediate`）、中央的機械臂（event loop）。兩種玩法：
 
 - **卡匣**：一段十行以內的經典題。可以先猜輸出順序，再放球看彈珠怎麼跑，跑完才顯示解說（也可以按「直接看解說」提前展開）。
