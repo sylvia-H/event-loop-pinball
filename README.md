@@ -4,6 +4,8 @@
 
 線上版：<https://sylvia-h.github.io/event-loop-pinball/>
 
+![經典題的演出：同步的程式先跑完；機械臂先把內圈的 then 夾進主管，內圈清空後，計時器的回呼才從外圈被夾走；輸出依序是 1、4、3、2](docs/demo.webp)
+
 推送到 `main` 會由 `.github/workflows/deploy.yml` 自動跑測試、build 並發布到 GitHub Pages；測試或首屏體積檢查不過就不會發布。
 
 整個網站只有一台機器：直立的主管（call stack）、內圈快軌（microtask）、外圈輸送帶（macrotask）、計時器架、Node 專屬的超車道（`process.nextTick`）與支線（`setImmediate`）、中央的機械臂（event loop）。兩種玩法：
