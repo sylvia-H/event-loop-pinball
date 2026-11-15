@@ -1,0 +1,1117 @@
+/* 與「所有權劇場」同一套設計變數：兩個作品要像同一個系列 */
+:root {
+  --bg: #07080c;
+  --panel: #0d0f15;
+  --line: #1f232e;
+  --line-strong: #343a4a;
+  --text: #e8e6e1;
+  --muted: #9a988f;
+  --faint: #6a6961;
+  --accent: #ffc740;
+  --error: #ff4059;
+  --ok: #7fd6a0;
+  --focus: #8fd8ff;
+
+  /* 彈珠的顏色：與場景裡的彈珠一致 */
+  --k-sync: #f1efe9;
+  --k-micro: #73e6ff;
+  --k-macro: #ffc740;
+  --k-tick: #c79aff;
+  --k-immediate: #ff8c4d;
+
+  --font-body: system-ui, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --gutter: var(--s4);
+  --radius: 3px;
+  --side-width: clamp(360px, 28vw, 440px);
+  --thumb: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── 外框：整頁 100dvh、不捲動 ───────────── */
+
+.shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding: var(--s1) var(--gutter);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.page {
+  display: grid;
+  grid-template-columns: var(--side-width) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.side {
+  min-width: 0;
+  padding: var(--s3) var(--gutter) var(--s5);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mode-panel {
+  display: grid;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+
+/* 格線的子項預設 min-width:auto，長字串會把欄撐寬 */
+.mode-panel > * {
+  min-width: 0;
+}
+
+/* ── 按鈕 ─────────────────────────────── */
+
+.btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: none;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.btn:disabled {
+  border-color: var(--line);
+  color: var(--faint);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-guide {
+  padding: 0 var(--s3);
+}
+
+.btn-guide[aria-expanded='true'] {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.btn-play {
+  min-width: 52px;
+}
+
+.btn-main:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-main:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgb(255 199 64 / 0.1);
+  color: var(--accent);
+}
+
+.btn-close {
+  border-color: transparent;
+  font-size: 16px;
+}
+
+/* ── 玩法分頁 ──────────────────────────── */
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.tab {
+  height: 32px;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tab + .tab {
+  border-left: 1px solid var(--line-strong);
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.is-selected {
+  background: rgb(255 255 255 / 0.07);
+  color: var(--text);
+}
+
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── 面板共用 ──────────────────────────── */
+
+.code,
+.output,
+.guess,
+.guide {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: 26px;
+  padding: 0 var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.panel-note {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ln {
+  flex: none;
+  width: 2.6em;
+  padding-right: 0.9em;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+}
+
+.dot {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dot, var(--k-sync));
+}
+
+.dot-micro,
+.dot-lane-micro {
+  --dot: var(--k-micro);
+}
+
+.dot-macro,
+.dot-lane-macro,
+.dot-lane-timers {
+  --dot: var(--k-macro);
+}
+
+.dot-tick,
+.dot-lane-tick {
+  --dot: var(--k-tick);
+}
+
+.dot-immediate,
+.dot-lane-immediate {
+  --dot: var(--k-immediate);
+}
+
+/* 計時器架上的彈珠還沒進輸送帶：空心 */
+.dot-lane-timers {
+  border: 2px solid var(--dot);
+  background: none;
+}
+
+/* ── 卡匣清單 ──────────────────────────── */
+
+.carts {
+  max-height: clamp(132px, 23dvh, 232px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.carts:focus-visible {
+  outline-offset: 0;
+}
+
+.cart {
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3) var(--s1) var(--s2);
+  border-left: 2px solid transparent;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.cart + .cart {
+  border-top: 1px solid var(--line);
+}
+
+.cart:hover {
+  background: rgb(255 255 255 / 0.04);
+}
+
+.cart.is-selected {
+  border-left-color: var(--accent);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.cart-no {
+  flex: none;
+  padding-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+.cart.is-selected .cart-no {
+  color: var(--accent);
+}
+
+.cart-body {
+  display: grid;
+  min-width: 0;
+}
+
+.cart-title {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.cart.is-selected .cart-title {
+  color: var(--text);
+}
+
+.cart-teaser {
+  font-size: 12px;
+  color: var(--faint);
+  text-wrap: pretty;
+}
+
+.cart.is-selected .cart-teaser {
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: var(--s2);
+  padding: 0 5px;
+  border: 1px solid var(--k-tick);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--k-tick);
+  vertical-align: 1px;
+}
+
+.lead {
+  font-size: 13.5px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.lead p + p {
+  margin-top: var(--s2);
+}
+
+/* ── 程式碼面板 ────────────────────────── */
+
+.code-lines {
+  padding: var(--s2) 0;
+}
+
+.line,
+.out {
+  display: flex;
+  width: 100%;
+  padding: 0 var(--s3) 0 0;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: left;
+}
+
+button.line {
+  cursor: pointer;
+}
+
+button.line:hover,
+.line.is-hot {
+  background: rgb(255 255 255 / 0.06);
+}
+
+.line.is-hot {
+  border-left-color: var(--focus);
+}
+
+.line.is-current {
+  border-left-color: var(--accent);
+  background: rgb(255 199 64 / 0.09);
+}
+
+button.line:focus-visible {
+  outline-offset: -2px;
+}
+
+/* 放不下的行自動折行，不出橫向捲軸。續行的懸掛縮排是 --hang（該行開頭的縮排再多 2 格，由 CodePanel 算）：
+   整塊往右推 --hang，第一行再用負的 text-indent 拉回原位。行號是另一個 flex 項目，只會在第一行 */
+.line code {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding-left: var(--hang, 2ch);
+  text-indent: calc(-1 * var(--hang, 2ch));
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tok-com {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.tok-str {
+  color: #b8d68c;
+}
+
+.tok-num {
+  color: #e0a878;
+}
+
+.tok-kw {
+  color: #c79bf2;
+}
+
+.tok-fn {
+  color: #7fc8e8;
+}
+
+.tok-ty {
+  color: #f0c674;
+}
+
+/* ── 先猜再看 ──────────────────────────── */
+
+.guess-body {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3) var(--s3);
+}
+
+.guess-hint,
+.guess-skip {
+  font-size: 12px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.guess-skip {
+  color: var(--faint);
+}
+
+.guess-picked,
+.guess-pool,
+.guess-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.guess-pool:empty {
+  display: none;
+}
+
+.guess-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-width: 48px;
+  height: 26px;
+  padding-left: var(--s1);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.guess-no {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.chip {
+  max-width: 100%;
+  height: 26px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--muted);
+}
+
+.chip.is-picked {
+  height: 24px;
+  border-color: transparent;
+  background: rgb(255 255 255 / 0.08);
+}
+
+/* ── 輸出面板 ──────────────────────────── */
+
+.output-empty {
+  padding: var(--s2) var(--s3);
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.output-lines {
+  max-height: 232px;
+  padding: var(--s2) 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.out code {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.out.is-right {
+  border-left-color: var(--ok);
+}
+
+.out.is-wrong {
+  border-left-color: var(--error);
+}
+
+.out-mark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-left: var(--s3);
+}
+
+.out-said {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 勾與叉用 CSS 畫，不載圖示 */
+.mark {
+  position: relative;
+  order: 1;
+  width: 12px;
+  height: 12px;
+}
+
+.is-right .mark::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 5px;
+  height: 9px;
+  border: solid var(--ok);
+  border-width: 0 2px 2px 0;
+  rotate: 45deg;
+}
+
+.is-wrong .mark::before,
+.is-wrong .mark::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: -1px;
+  width: 2px;
+  height: 14px;
+  background: var(--error);
+  rotate: 45deg;
+}
+
+.is-wrong .mark::after {
+  rotate: -45deg;
+}
+
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-top: 1px solid var(--line);
+}
+
+.verdict-text {
+  margin-right: auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.verdict-text.is-right {
+  color: var(--ok);
+}
+
+.verdict-text.is-wrong {
+  color: var(--error);
+}
+
+/* ── 自己發球 ──────────────────────────── */
+
+.shots {
+  display: grid;
+  gap: var(--s2);
+}
+
+.shot {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  text-align: left;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.shot:hover:not(:disabled) {
+  border-color: var(--muted);
+  background: rgb(255 255 255 / 0.05);
+}
+
+.shot:active:not(:disabled) {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.shot:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.shot .dot {
+  width: 14px;
+  height: 14px;
+}
+
+.shot-body {
+  display: grid;
+  min-width: 0;
+}
+
+.shot-label {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.shot-hint {
+  font-size: 12px;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.launcher-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+
+.launcher-count {
+  font-size: 12px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.launcher-count.is-full {
+  color: var(--accent);
+}
+
+/* ── 機器 ─────────────────────────────── */
+
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stage-view {
+  position: absolute;
+  inset: 0;
+}
+
+.stage-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lbl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
+  pointer-events: none;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+.lbl-ball {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--k-sync);
+  text-shadow:
+    0 0 3px var(--bg),
+    0 0 6px var(--bg);
+}
+
+.lbl-micro {
+  color: var(--k-micro);
+}
+
+.lbl-macro {
+  color: var(--k-macro);
+}
+
+.lbl-tick {
+  color: var(--k-tick);
+}
+
+.lbl-immediate {
+  color: var(--k-immediate);
+}
+
+.lbl-lane {
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+}
+
+.stage-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--s5);
+  text-align: center;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* ── 「這台機器怎麼讀」：疊在機器右上角，不蓋住中央 ── */
+
+.guide {
+  position: absolute;
+  top: var(--s3);
+  right: var(--s3);
+  display: flex;
+  flex-direction: column;
+  width: clamp(264px, 33%, 340px);
+  max-width: calc(100% - 2 * var(--s3));
+  max-height: calc(100% - 2 * var(--s3));
+  border-color: var(--line-strong);
+  background: rgb(13 15 21 / 0.94);
+}
+
+.guide .panel-head {
+  flex: none;
+  padding-right: 0;
+}
+
+.guide-body {
+  padding: var(--s2) var(--s3) var(--s3);
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+  text-wrap: pretty;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.guide-body p + p {
+  margin-top: var(--s1);
+}
+
+.guide-sub {
+  margin: var(--s3) 0 var(--s1);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+}
+
+.guide-lanes li {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: center;
+  column-gap: var(--s2);
+  line-height: 1.5;
+}
+
+.guide-lanes li + li {
+  margin-top: var(--s1);
+}
+
+.guide-name {
+  color: var(--text);
+}
+
+.guide-what {
+  grid-column: 2;
+  font-size: 12px;
+}
+
+.guide-balls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.guide-balls li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── 字幕與時間軸 ───────────────────────── */
+
+.timeline {
+  padding: var(--s2) var(--gutter) var(--s3);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+/* 留兩行的高度：字幕長短不同時機器的尺寸才不會跟著跳 */
+.caption {
+  min-height: 3.5em;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.cap {
+  text-wrap: pretty;
+}
+
+.cap-idle {
+  color: var(--muted);
+}
+
+.cap-rule {
+  display: inline-block;
+  margin-right: var(--s2);
+  padding: 0 var(--s2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: rgb(255 199 64 / 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--accent);
+  vertical-align: 1px;
+}
+
+.transport {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  margin-top: var(--s1);
+}
+
+.transport-buttons {
+  flex: none;
+  display: flex;
+  gap: var(--s1);
+}
+
+.scrub {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-count {
+  flex: none;
+  min-width: 6.5em;
+  font-size: 12px;
+  line-height: 28px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.slider:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--line-strong);
+}
+
+.slider::-moz-range-track {
+  height: 2px;
+  background: var(--line-strong);
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((2px - var(--thumb)) / 2);
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
+}
+
+.slider::-moz-range-thumb {
+  width: calc(var(--thumb) - 4px);
+  height: calc(var(--thumb) - 4px);
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
+}
+
+.slider:focus-visible {
+  outline-offset: 0;
+}
+
+/* 刻度對齊拖把的中心：拖把中心的行程兩端各內縮半個拖把寬 */
+.ticks {
+  position: relative;
+  height: 20px;
+  margin: 0 calc(var(--thumb) / 2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.tick {
+  position: absolute;
+  top: 0;
+  width: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.tick::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 5px;
+  background: var(--line-strong);
+}
+
+.tick.is-done {
+  color: var(--muted);
+}
+
+.tick.is-done::before {
+  background: var(--muted);
+}
+
+/* ── 窄螢幕：只求不破版。左欄疊到機器上方，整頁改成可捲動 ── */
+
+@media (max-width: 859px) {
+  .shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow: visible;
+  }
+
+  .stage {
+    height: min(100vw, 70dvh);
+  }
+
+  .transport {
+    flex-wrap: wrap;
+  }
+
+  .scrub {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .step-count {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .line,
+  .btn,
+  .tab,
+  .cart,
+  .chip,
+  .shot {
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+}
