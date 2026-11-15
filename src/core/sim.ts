@@ -116,6 +116,10 @@ export class Machine {
   private labels = new Map<Op, string>();
   /** 下一步的說明要用這句覆寫 */
   private say: string | undefined;
+  /** 下一步的規則要用這個覆寫（null 或空字串是拿掉）；undefined 是照自動產生的 */
+  private rule: string | null | undefined;
+  /** await 之後的那幾段（不是回呼）：說明裡的稱呼不加「的回呼」 */
+  private parts = new Set<string>();
   /** 這一輪清內圈是從第幾步開始的 */
   private drainFrom = 0;
 
@@ -217,8 +221,10 @@ export class Machine {
 
   private *emit(events: MachineEvent[], line: number | null, caption: string, rule?: string): Gen {
     const step: Step = { events, line, caption: this.say ?? caption };
+    const tag = this.rule === undefined ? rule : this.rule;
     this.say = undefined;
-    if (rule) step.rule = rule;
+    this.rule = undefined;
+    if (tag) step.rule = tag;
     this.steps.push(step);
     this.states.push(this.snapshot());
     if (this.steps.length > MAX_STEPS) throw new Error(`超過 ${MAX_STEPS} 步：程式是不是在無限排 microtask？`);
@@ -236,8 +242,22 @@ export class Machine {
     return this.balls[id]?.label ?? id;
   }
 
+  /** 標籤後面接中文時要不要空一格：英數結尾才空（then 的、f 後半的） */
+  private sp(label: string): string {
+    return /[!-~]$/.test(label) ? `${label} ` : label;
+  }
+
+  /** 說明裡怎麼稱呼一顆彈珠：回呼是「timeout 0ms 的回呼」，函式與 await 之後的那幾段直接用標籤 */
+  private who(id: string): string {
+    const ball = this.balls[id];
+    if (!ball) return '機器';
+    if (id === 'main') return '主程式';
+    if (ball.kind === 'sync' || this.parts.has(id)) return this.sp(ball.label);
+    return `${this.sp(ball.label)}的回呼`;
+  }
+
   private top(): string {
-    return this.label(this.stack[this.stack.length - 1] ?? '');
+    return this.who(this.stack[this.stack.length - 1] ?? '');
   }
 
   /** 彈珠離開主管（一定是最上面那顆） */
@@ -269,6 +289,7 @@ export class Machine {
     rule?: string,
   ): Gen {
     const ball = this.newBall(null, kind, label, line);
+    if (task.fn && task.fn.part > 1) this.parts.add(ball);
     this.queues[lane].push({ ...task, ball });
     yield* this.emit([{ type: 'spawn', ball, to: lane }], line, caption, rule);
   }
@@ -279,7 +300,8 @@ export class Machine {
     if (p.done) return;
     p.done = true;
     for (const w of p.waiting.splice(0)) {
-      yield* this.enqueue('micro', 'micro', w.label, w.line, w.task, `${by}完成，等著的 ${w.label} 排進內圈`);
+      const caption = `${by}完成，等著的 ${this.sp(w.label)}排進內圈`;
+      yield* this.enqueue('micro', 'micro', w.label, w.line, w.task, caption);
       // 這一步是「現在執行到哪一行」造成的，不是回呼登記的那一行
       this.steps[this.steps.length - 1]!.line = line;
     }
@@ -302,10 +324,12 @@ export class Machine {
     const fn = frame.fn;
     if (!fn) throw new Error('await_ 只能直接放在 async_ 的 body 裡');
     const part = fn.part + 1;
-    const label = part === 2 ? `${fn.name} 後半` : `${fn.name} 第 ${part} 段`;
+    const tail = part === 2 ? '後半' : `第 ${part} 段`;
+    const label = `${fn.name} ${tail}`;
     const task: Omit<Task, 'ball'> = { body: rest, fn: { ...fn, part } };
     const target = op.on === undefined ? undefined : this.promiseOf(op.on, 'await_');
     this.say = op.say;
+    this.rule = op.rule;
     this.leave(frame.ball);
     const pop: MachineEvent = { type: 'pop', ball: frame.ball };
     if (target && !target.done) {
@@ -314,29 +338,36 @@ export class Machine {
       return;
     }
     const ball = this.newBall(null, 'micro', label, op.line);
+    this.parts.add(ball);
     this.queues.micro.push({ ...task, ball });
     yield* this.emit(
       [pop, { type: 'spawn', ball, to: 'micro' }],
       op.line,
-      `遇到 await：${fn.name} 讓出主管，後半段排進內圈`,
+      `遇到 await：${fn.name} 讓出主管，${tail}排進內圈`,
       'await 之後是一顆 microtask',
     );
   }
 
   private *exec(op: Op): Gen {
     this.say = op.say;
+    this.rule = op.rule;
     const { line } = op;
     const label = ('label' in op && op.label) || this.labels.get(op) || BASE_LABEL[op.op]?.(op) || op.op;
     switch (op.op) {
       case 'log':
         this.output.push(op.text);
-        yield* this.emit([{ type: 'log', text: op.text }], line, `${this.top() || '機器'} 印出 ${op.text}`);
+        yield* this.emit([{ type: 'log', text: op.text }], line, `${this.top()}印出 ${op.text}`);
         return;
 
       case 'call': {
         const ball = this.newBall(null, 'sync', op.name, line);
         this.stack.push(ball);
-        yield* this.emit([{ type: 'spawn', ball, to: 'stack' }], line, `呼叫 ${op.name}()：新的一顆疊到主管最上面`);
+        yield* this.emit(
+          [{ type: 'spawn', ball, to: 'stack' }],
+          line,
+          `呼叫 ${op.name}()：新的一顆疊到主管最上面`,
+          '主管一次只跑最上面那一顆',
+        );
         yield* this.runBody(op.body, { ball });
         this.leave(ball);
         yield* this.emit([{ type: 'pop', ball }], line, `${op.name} 執行完，從主管頂端離開`);
@@ -355,7 +386,7 @@ export class Machine {
           '主管被佔住，計時器只能等',
         );
         this.leave(ball);
-        yield* this.emit([{ type: 'pop', ball }], line, `${label} 做完了，離開主管`);
+        yield* this.emit([{ type: 'pop', ball }], line, `${this.sp(label)}做完了，離開主管`);
         return;
       }
 
@@ -399,9 +430,9 @@ export class Machine {
         const target = op.on === undefined ? undefined : this.promiseOf(op.on, 'then');
         if (target && !target.done) {
           target.waiting.push({ label, line, task });
-          yield* this.emit([], line, `Promise 還沒完成，${label} 的回呼先等著`, '完成了才排進內圈');
+          yield* this.emit([], line, `Promise 還沒完成，${this.sp(label)}的回呼先等著`, '完成了才排進內圈');
         } else {
-          yield* this.enqueue('micro', 'micro', label, line, task, `Promise 已經完成，${label} 的回呼排進內圈`);
+          yield* this.enqueue('micro', 'micro', label, line, task, `Promise 已經完成，${this.sp(label)}的回呼排進內圈`);
         }
         return;
       }
@@ -482,19 +513,19 @@ export class Machine {
     let caption: string;
     let rule: string | undefined;
     if (lane === 'tick') {
-      caption = `機械臂先夾超車道的 ${label} 進主管`;
+      caption = `機械臂先夾超車道的 ${this.sp(label)}進主管`;
       if (q.micro.length) rule = 'nextTick 排在 Promise 前面';
     } else if (lane === 'micro') {
       if ((this.born.get(ball) ?? 0) >= this.drainFrom) {
         caption = `內圈又多了 ${label}，同一輪就夾進主管`;
         rule = '清的途中排進來的也一併清掉';
       } else {
-        caption = `主管空了，機械臂夾內圈的 ${label} 進主管`;
+        caption = `主管空了，機械臂夾內圈的 ${this.sp(label)}進主管`;
         if (q.macro.length || q.immediate.length || this.timers.length) rule = '內圈清空才輪到外圈';
       }
     } else if (lane === 'macro') {
       caption = `內圈是空的，機械臂才夾外圈的 ${label}`;
-      if (q.macro.length) rule = '一次只拿一顆 macrotask';
+      if (q.macro.length) rule = '外圈一次只夾一顆';
     } else {
       caption = `計時器這一輪跑完，才夾支線的 ${label}`;
       rule = 'setImmediate 排在計時器之後';
@@ -505,7 +536,7 @@ export class Machine {
     if (task.fn?.as !== undefined) yield* this.settle(task.fn.as, `${task.fn.name} 回傳的 Promise `, line);
     if (task.settles !== undefined) yield* this.settle(task.settles, `${label} 回傳的 Promise `, line);
     this.leave(ball);
-    yield* this.emit([{ type: 'pop', ball }], line, `${label} 執行完，離開主管`);
+    yield* this.emit([{ type: 'pop', ball }], line, `${this.who(ball)}執行完，離開主管`);
   }
 
   /** 現在已經到期的計時器，依（到期時間、登記順序）；排在前面的還沒到期，後面的也得等 */
@@ -526,8 +557,8 @@ export class Machine {
     this.queues.macro.push(t.task);
     const late = this.clock > t.at + Math.max(1, t.ms);
     const caption = late
-      ? `${label} 早就到期，等主管空了才掉上外圈`
-      : `${label} 時間到，從計時器架掉上外圈排隊`;
+      ? `${this.sp(label)}早就到期，等主管空了才掉上外圈`
+      : `${this.sp(label)}時間到，從計時器架掉上外圈排隊`;
     const rule = tie ? '同時到期，依登記順序' : late ? '主管被佔住，計時器只能等' : undefined;
     yield* this.emit([{ type: 'move', ball, from: 'timers', to: 'macro' }], this.balls[ball]?.line ?? null, caption, rule);
   }
@@ -540,7 +571,10 @@ export class Machine {
   }
 }
 
-/** 跑一段程式，得到完整的 Run。純函式：同樣的 program 永遠得到同樣的結果 */
+/**
+ * 跑一段程式，得到完整的 Run。純函式：同樣的 program 永遠得到同樣的結果。
+ * 跑完之後套用卡匣依步驟編號寫的覆寫：captions 換說明，rules 換規則標籤（空字串或 null 是拿掉）。
+ */
 export function simulate(program: Program): Run {
   const machine = new Machine();
   const gen = machine.runProgram(program);
@@ -550,6 +584,12 @@ export function simulate(program: Program): Run {
     const step = run.steps[Number(k)];
     if (!step) throw new Error(`captions 指到不存在的第 ${k} 步（總共 ${run.steps.length} 步）`);
     step.caption = caption;
+  }
+  for (const [k, rule] of Object.entries(program.rules ?? {})) {
+    const step = run.steps[Number(k)];
+    if (!step) throw new Error(`rules 指到不存在的第 ${k} 步（總共 ${run.steps.length} 步）`);
+    if (rule) step.rule = rule;
+    else delete step.rule;
   }
   return run;
 }

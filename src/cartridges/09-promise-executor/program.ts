@@ -3,12 +3,13 @@ import type { CartridgeMeta } from '../meta.ts';
 
 export const meta: CartridgeMeta = {
   slug: '09-promise-executor',
-  title: 'new Promise：executor 不排隊',
-  teaser: 'new Promise 裡面那幾行，是同步執行的',
+  title: 'new Promise 的 executor',
+  teaser: 'new Promise 裡面那幾行，什麼時候執行？',
   lead: [
     '傳給 new Promise 的函式叫 executor，建立 Promise 的當下就在主管裡執行，不排隊。resolve() 也不會中斷它，後面那行照跑。',
     '會排進內圈的只有 then 的回呼。所以 2、3 跟著主程式印出來，4 要等主程式跑完，輸出是 1、2、3、5、4。',
   ],
+  takeaway: 'executor 當場同步執行，排隊的只有 then 的回呼',
   nodeOnly: false,
 };
 

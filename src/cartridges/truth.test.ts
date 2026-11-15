@@ -11,7 +11,7 @@ import type { Program } from '../core/program.ts';
 import { simulate } from '../core/sim.ts';
 import type { Verified } from '../core/types.ts';
 import { ballsForLine } from '../core/view.ts';
-import type { CartridgeMeta } from './meta.ts';
+import { takeaways, type CartridgeMeta } from './meta.ts';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const folders = readdirSync(ROOT, { withFileTypes: true })
@@ -20,7 +20,23 @@ const folders = readdirSync(ROOT, { withFileTypes: true })
   .sort();
 
 const chars = (s: string) => [...s].length;
+/** 標題的長度：全形字算 1，半形的英數、空白與標點算半個（API 名稱很長，照字元數算會塞不下） */
+const width = (s: string) => [...s].reduce((n, c) => n + (c.charCodeAt(0) < 0x80 ? 0.5 : 1), 0);
 const readLf = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+
+/**
+ * text 有沒有寫出輸出順序：把各行用空白、頓號、逗號、「→」等接起來的寫法都算（空白一律忽略）。
+ * 有就回傳那一段，沒有回傳 null。
+ */
+function spoiler(text: string, output: readonly string[]): string | null {
+  if (output.length < 2) return null;
+  const squeezed = text.replace(/\s+/g, '');
+  for (const sep of ['', '、', ',', '，', '→', '->', '＞', '>', '/', '／']) {
+    const joined = output.map((line) => line.replace(/\s+/g, '')).join(sep);
+    if (squeezed.includes(joined)) return joined;
+  }
+  return null;
+}
 
 test('至少有前 4 個卡匣，資料夾名稱是 NN-slug', () => {
   assert.ok(folders.length >= 4);
@@ -73,14 +89,44 @@ for (const name of folders) {
     // 文字資料
     const { meta } = mod;
     assert.equal(meta.slug, name);
-    assert.ok(meta.title.length > 0);
+    assert.ok(width(meta.title) > 0 && width(meta.title) <= 20, `title 超過 20 字（半形算半個）：${meta.title}`);
     assert.ok(chars(meta.teaser) > 0 && chars(meta.teaser) <= 30, `teaser 超過 30 字：${meta.teaser}`);
     assert.equal(meta.lead.length, 2);
-    for (const para of meta.lead) assert.ok(chars(para) <= 80, `lead 的一段超過 80 字（${chars(para)}）：${para}`);
+    for (const para of meta.lead) {
+      assert.ok(chars(para) > 0 && chars(para) <= 80, `lead 的一段超過 80 字（${chars(para)}）：${para}`);
+    }
+    assert.ok(
+      typeof meta.takeaway === 'string' && chars(meta.takeaway) > 0 && chars(meta.takeaway) <= 30,
+      `takeaway 要有，而且 30 字以內：${meta.takeaway}`,
+    );
+    assert.equal(takeaways[name], meta.takeaway, 'meta.ts 的 takeaways 沒有這個卡匣');
+    // 讀者是先猜再看：清單上的 title、teaser 不能寫出輸出順序
+    for (const [field, text] of [['title', meta.title], ['teaser', meta.teaser]] as const) {
+      const leak = spoiler(text, run.output);
+      assert.equal(leak, null, `${field} 洩漏了輸出順序「${leak}」：${text}`);
+    }
+    // 每個卡匣至少有一步帶規則標籤：那是讀者要帶走的東西
+    assert.ok(run.steps.some((s) => s.rule), '沒有任何一步帶規則標籤');
     const usesNode = /"op":"(nextTick|immediate)"/.test(JSON.stringify(mod.default));
     assert.equal(meta.nodeOnly, usesNode, 'nodeOnly 要與程式有沒有用到 nextTick／setImmediate 一致');
   });
 }
+
+test('spoiler：輸出順序的幾種寫法都擋得到，只提到其中幾個數字不算', () => {
+  const output = ['1', '4', '3', '2'];
+  for (const text of ['經典題：1 4 3 2', '答案是 1、4、3、2', '1,4,3,2', '1, 4, 3, 2', '1，4，3，2', '1→4→3→2', '1 → 4 → 3 → 2', '1432', '1 -> 4 -> 3 -> 2']) {
+    assert.notEqual(spoiler(text, output), null, text);
+  }
+  for (const text of ['setTimeout 0 與 Promise.then', '計時器設 10 毫秒，迴圈跑 30 毫秒', '1、2、3、4']) {
+    assert.equal(spoiler(text, output), null, text);
+  }
+  // 只印一行的卡匣沒有「順序」可言
+  assert.equal(spoiler('await 42', ['42']), null);
+});
+
+test('takeaways 與資料夾一一對應', () => {
+  assert.deepEqual(Object.keys(takeaways).sort(), folders);
+});
 
 test('清單（index.ts）註冊了每一個資料夾', () => {
   const index = readFileSync(join(ROOT, 'index.ts'), 'utf8');

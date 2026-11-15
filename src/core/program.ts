@@ -13,6 +13,8 @@ interface Base {
   line: number | null;
   /** 覆寫這個操作產生的那一步的說明（40 字以內）；不寫就用模擬器自動產生的 */
   say?: string;
+  /** 覆寫這個操作產生的那一步的規則標籤（24 字以內）；空字串或 null 是把自動產生的拿掉 */
+  rule?: string | null;
 }
 
 /** 會變成一顆彈珠的操作，可以自己指定彈珠的標籤；不寫就自動取（同類有好幾顆時自動編號） */
@@ -55,10 +57,18 @@ export interface Program {
   body: readonly Op[];
   /** 依步驟編號（0 起算）覆寫說明，給機械臂夾球這類不是由某個操作直接產生的步驟用 */
   captions?: Readonly<Record<number, string>>;
+  /** 依步驟編號（0 起算）覆寫規則標籤；空字串或 null 是把那一步自動產生的規則拿掉 */
+  rules?: Readonly<Record<number, string | null>>;
 }
 
 type Line = number | null;
-type Opts = { label?: string; say?: string };
+/** 說明與規則標籤的覆寫 */
+type Note = { say?: string; rule?: string | null };
+type Opts = Note & { label?: string };
+/** 沒有選項物件的操作：最後一個參數直接寫說明，要連規則一起改就寫 { say, rule } */
+type Say = string | Note;
+
+const note = (s: Say | undefined): Note => (typeof s === 'string' ? { say: s } : (s ?? {}));
 
 const clean = <T extends object>(o: T): T => {
   for (const k of Object.keys(o) as (keyof T)[]) if (o[k] === undefined) delete o[k];
@@ -67,19 +77,19 @@ const clean = <T extends object>(o: T): T => {
 
 export const program = (...body: Op[]): Program => ({ body });
 
-export const log = (line: Line, text: string | number, say?: string): Op =>
-  clean({ op: 'log', line, text: String(text), say });
+export const log = (line: Line, text: string | number, say?: Say): Op =>
+  clean({ op: 'log', line, text: String(text), ...note(say) });
 
-export const call = (line: Line, name: string, body: readonly Op[], say?: string): Op =>
-  clean({ op: 'call', line, name, body, say });
+export const call = (line: Line, name: string, body: readonly Op[], say?: Say): Op =>
+  clean({ op: 'call', line, name, body, ...note(say) });
 
 export const block = (line: Line, ms: number, o: Opts = {}): Op => clean({ op: 'block', line, ms, ...o });
 
 export const timeout = (line: Line, ms: number, body: readonly Op[], o: Opts = {}): Op =>
   clean({ op: 'timeout', line, ms, body, ...o });
 
-export const event = (line: Line, label: string, body: readonly Op[], say?: string): Op =>
-  clean({ op: 'event', line, label, body, say });
+export const event = (line: Line, label: string, body: readonly Op[], say?: Say): Op =>
+  clean({ op: 'event', line, label, body, ...note(say) });
 
 export const immediate = (line: Line, body: readonly Op[], o: Opts = {}): Op =>
   clean({ op: 'immediate', line, body, ...o });
@@ -94,12 +104,13 @@ export const microtask = (line: Line, body: readonly Op[], o: Opts = {}): Op =>
 export const then_ = (line: Line, body: readonly Op[], o: Opts & { on?: string; as?: string } = {}): Op =>
   clean({ op: 'then', line, body, ...o });
 
-export const promise = (line: Line, name: string, body: readonly Op[], say?: string): Op =>
-  clean({ op: 'promise', line, name, body, say });
+export const promise = (line: Line, name: string, body: readonly Op[], say?: Say): Op =>
+  clean({ op: 'promise', line, name, body, ...note(say) });
 
-export const resolve = (line: Line, name: string, say?: string): Op => clean({ op: 'resolve', line, name, say });
+export const resolve = (line: Line, name: string, say?: Say): Op =>
+  clean({ op: 'resolve', line, name, ...note(say) });
 
-export const async_ = (line: Line, name: string, body: readonly Op[], o: { as?: string; say?: string } = {}): Op =>
+export const async_ = (line: Line, name: string, body: readonly Op[], o: Note & { as?: string } = {}): Op =>
   clean({ op: 'async', line, name, body, ...o });
 
-export const await_ = (line: Line, o: { on?: string; say?: string } = {}): Op => clean({ op: 'await', line, ...o });
+export const await_ = (line: Line, o: Note & { on?: string } = {}): Op => clean({ op: 'await', line, ...o });

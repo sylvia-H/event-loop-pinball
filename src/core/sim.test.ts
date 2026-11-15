@@ -371,6 +371,76 @@ test('say 覆寫操作那一步的說明，captions 依步驟編號覆寫', () =
   assert.throws(() => simulate({ ...p, captions: { 99: '沒有這一步' } }));
 });
 
+test('rules 依步驟編號覆寫規則標籤；空字串或 null 是拿掉自動產生的', () => {
+  const p = program(timeout(1, 0, [log(1, 'a')]), then_(2, [log(2, 'b')]));
+  const auto = simulate(p);
+  const k = auto.steps.findIndex((s) => s.rule === '內圈清空才輪到外圈');
+  const idle = auto.steps.findIndex((s) => s.rule === '主管空了，event loop 才動');
+  const plain = auto.steps.findIndex((s) => s.rule === undefined);
+  assert.ok(k > 0 && idle > 0 && plain >= 0);
+
+  const run = simulate({ ...p, rules: { [k]: '內圈先排的先走', [idle]: '', [plain]: '本來沒有的也可以加' } });
+  assert.equal(run.steps[k]!.rule, '內圈先排的先走');
+  assert.ok(!('rule' in run.steps[idle]!));
+  assert.equal(run.steps[plain]!.rule, '本來沒有的也可以加');
+  assert.ok(!('rule' in simulate({ ...p, rules: { [k]: null } }).steps[k]!));
+  // 只動規則：說明、事件、狀態、輸出都不變
+  assert.deepEqual(run.steps.map((s) => [s.caption, s.events, s.line]), auto.steps.map((s) => [s.caption, s.events, s.line]));
+  assert.deepEqual(run.states, auto.states);
+  assert.throws(() => simulate({ ...p, rules: { 99: '沒有這一步' } }), /rules/);
+  // 覆寫不會改到傳進來的 program，再跑一次仍是自動產生的
+  assert.deepEqual(simulate(p), auto);
+});
+
+test('操作可以帶 rule：覆寫它產生的那一步的規則，不會漏到下一步', () => {
+  const run = simulate(
+    program(
+      log(1, 'x', { say: '說明與規則一起改', rule: '自己寫的規則' }),
+      log(2, 'y'),
+      call(3, 'f', [log(4, 'z')], { rule: null }),
+      promise(5, 'p', [resolve(5, 'p', { rule: '完成了' })], { rule: '' }),
+      then_(6, [], { on: 'p', rule: '照樣排隊' }),
+      async_(7, 'g', [await_(8, { rule: '讓出去' })]),
+    ),
+  );
+  const at = (line: number) => run.steps.filter((s) => s.line === line);
+  assert.deepEqual([at(1)[0]!.caption, at(1)[0]!.rule], ['說明與規則一起改', '自己寫的規則']);
+  assert.equal(at(2)[0]!.rule, undefined);
+  // call 自動帶的規則被拿掉；它離開主管的那一步本來就沒有
+  assert.deepEqual(at(3).map((s) => s.rule), [undefined, undefined]);
+  assert.equal(simulate(program(call(3, 'f', []))).steps[1]!.rule, '主管一次只跑最上面那一顆');
+  assert.deepEqual(at(5).map((s) => s.rule), [undefined, '完成了', undefined]);
+  assert.equal(at(6)[0]!.rule, '照樣排隊');
+  assert.equal(at(8)[0]!.rule, '讓出去');
+  checkRun(run);
+});
+
+test('說明裡的稱呼：主程式、函式名、「…的回呼」、await 的後半', () => {
+  const run = simulate(
+    program(
+      log(1, 'a'),
+      call(2, 'f', [log(2, 'b')]),
+      timeout(3, 0, [log(3, 'c')]),
+      then_(4, [log(4, 'd')]),
+      async_(5, 'g', [await_(5), log(5, 'e'), await_(5), log(5, 'f')]),
+      promise(6, 'p', []),
+      async_(7, 'h', [await_(7, { on: 'p' }), log(7, 'g')]),
+      resolve(8, 'p'),
+    ),
+  );
+  const said = (text: string) => run.steps.find((s) => s.events.some((e) => e.type === 'log' && e.text === text))!.caption;
+  assert.equal(said('a'), '主程式印出 a');
+  assert.equal(said('b'), 'f 印出 b');
+  assert.equal(said('c'), 'timeout 0ms 的回呼印出 c');
+  assert.equal(said('d'), 'then 的回呼印出 d');
+  assert.equal(said('e'), 'g 後半印出 e');
+  assert.equal(said('f'), 'g 第 3 段印出 f');
+  // 等 Promise 完成才排進去的後半也一樣，不會被當成回呼
+  assert.equal(said('g'), 'h 後半印出 g');
+  assert.ok(run.steps.some((s) => s.caption === 'then 的回呼執行完，離開主管'));
+  assert.ok(run.steps.some((s) => s.caption === 'h 後半執行完，離開主管'));
+});
+
 test('寫錯的程式會丟出說明清楚的錯誤', () => {
   assert.throws(() => simulate(program(await_(1))), /async_/);
   assert.throws(() => simulate(program(call(1, 'f', [await_(2)]))), /async_/);
